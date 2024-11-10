@@ -1,5 +1,6 @@
 // src/App.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import JSZip from 'jszip';
 
 const App: React.FC = () => {
   const [originalImages, setOriginalImages] = useState<Array<{
@@ -17,6 +18,18 @@ const App: React.FC = () => {
   const [resizeMode, setResizeMode] = useState<'scale' | 'dimensions'>('scale');
   const [targetWidth, setTargetWidth] = useState<string>('');
   const [targetHeight, setTargetHeight] = useState<string>('');
+  const [zipFilename, setZipFilename] = useState<string>(
+    `resized-images-{date}`
+  );
+  const [filenameTemplate, setFilenameTemplate] = useState<string>(
+    resizeMode === 'scale' ? '{filename}_x{scale}' : '{filename}_{width}x{height}'
+  );
+
+  useEffect(() => {
+    setFilenameTemplate(
+      resizeMode === 'scale' ? '{filename}_x{scale}' : '{filename}_{width}x{height}'
+    );
+  }, [resizeMode]);
 
   const imageStyle = {
     border: '1px solid black',
@@ -76,6 +89,13 @@ const App: React.FC = () => {
     alignItems: 'center'
   } as const;
 
+  const dimensionsStyle: React.CSSProperties = {
+    textAlign: 'center',
+    fontSize: '14px',
+    color: '#666',
+    marginTop: '8px'
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +134,6 @@ const App: React.FC = () => {
   };
 
   const resizeImages = () => {
-    // Clear previous resized images before starting new resize operation
     setResizedImages([]);
 
     originalImages.forEach(originalImage => {
@@ -132,13 +151,9 @@ const App: React.FC = () => {
           height: resizedCanvas.height 
         };
 
-        const suffix = resizeMode === 'scale' 
-          ? `_x${scale}`
-          : `_${newDimensions.width}x${newDimensions.height}`;
-
         setResizedImages(prev => [...prev, {
           url: resizedCanvas.toDataURL('image/png'),
-          filename: `${originalImage.filename}${suffix}`,
+          filename: originalImage.filename,
           dimensions: newDimensions
         }]);
       };
@@ -204,15 +219,30 @@ const App: React.FC = () => {
     return canvas;
   };
 
-  const removeImage = (index: number) => {
-    setOriginalImages(prev => prev.filter((_, i) => i !== index));
-    // Also clear corresponding resized image if it exists
-    setResizedImages(prev => prev.filter((_, i) => i !== index));
-  };
-
   const clearAllImages = () => {
     setOriginalImages([]);
     setResizedImages([]);
+  };
+
+  const getFormattedDate = () => {
+    const date = new Date().toISOString();
+    // remove milliseconds part
+    const splitted = date.split('.');
+    return splitted.slice(0, -1).join('.');
+  };
+
+
+  const processTemplate = (template: string, image?: { filename: string, dimensions: { width: number, height: number } }) => {
+    let text = template;
+    if (image) {
+      text = text
+      .replace(/{filename}/g, image.filename)
+      .replace(/{width}/g, image.dimensions.width.toString())
+      .replace(/{height}/g, image.dimensions.height.toString())
+    }
+    return text
+      .replace(/{scale}/g, scale.toString())
+      .replace(/{date}/g, getFormattedDate());
   };
 
   return (
@@ -324,21 +354,11 @@ const App: React.FC = () => {
             <div style={scrollableContainerStyle}>
               {originalImages.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
-                  <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
-                  <img
-                    src={img.file}
-                    alt={`Original ${index + 1}`}
-                    style={imageStyle}
-                  />
-                  <button
-                    onClick={() => removeImage(index)}
-                    style={{
-                      ...buttonStyle,
-                      marginTop: '10px'
-                    }}
-                  >
-                    Remove
-                  </button>
+                  <img src={img.file} alt={img.filename} style={imageStyle} />
+                  <div style={dimensionsStyle}>
+                    <div>{img.filename}.png</div>
+                    <div>{img.dimensions.width} x {img.dimensions.height}px</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -355,16 +375,73 @@ const App: React.FC = () => {
       {resizedImages.length > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3>Resized Images</h3>
+          <div style={{ 
+            marginBottom: '25px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '10px',
+            maxWidth: '600px',
+            margin: '0 auto'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ width: '180px', whiteSpace: 'nowrap' }}>ZIP filename:</span>
+              <input
+                type="text"
+                value={zipFilename}
+                onChange={(e) => setZipFilename(e.target.value)}
+                placeholder="resized-images"
+                style={{ marginLeft: '10px', width: '380px' }}
+              />
+            </label>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              paddingBottom: '10px'
+            }}>
+              <span style={{ width: '180px', whiteSpace: 'nowrap' }}>New Filename:</span>
+              <input
+                type="text"
+                value={filenameTemplate}
+                onChange={(e) => setFilenameTemplate(e.target.value)}
+                placeholder="e.g. {filename}_{width}x{height}"
+                style={{ marginLeft: '10px', width: '380px' }}
+              />
+            </label>
+          </div>
+          <button 
+            onClick={async () => {
+              const zip = new JSZip();
+              resizedImages.forEach((img) => {
+                const imageData = img.url.split(',')[1];
+                zip.file(
+                  `${processTemplate(filenameTemplate, img)}.png`, 
+                  imageData, 
+                  {base64: true}
+                );
+              });
+              
+              const content = await zip.generateAsync({type: 'blob'});
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(content);
+              link.download = `${processTemplate(zipFilename)}.zip`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(link.href);
+            }}
+            style={{...buttonStyle, marginBottom: '15px'}}
+          >
+            Download All as ZIP
+          </button>
           <div style={{ maxWidth: '100vw', margin: '0 auto' }}>
             <div style={scrollableContainerStyle}>
               {resizedImages.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
-                  <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
-                  <img 
-                    src={img.url} 
-                    alt={`Resized ${index + 1}`}
-                    style={imageStyle}
-                  />
+                  <img src={img.url} alt={img.filename} style={imageStyle} />
+                  <div style={dimensionsStyle}>
+                    <div>{processTemplate(filenameTemplate, img)}.png</div>
+                    <div>{img.dimensions.width} x {img.dimensions.height}px</div>
+                  </div>
                   <div>
                     <button
                       onClick={() => {
@@ -410,35 +487,25 @@ const App: React.FC = () => {
       <div style={{...sectionContainerStyle, marginTop: '20px'}}>
         <h3 style={sectionHeaderStyle}>How to Use This Pixel Art Resizer?</h3>
         <ol style={listStyle}>
-          <li style={{ marginBottom: '15px' }}>
-            <strong>Choose Your Resize Method:</strong>
-            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
-              <li><strong>Scale:</strong> Multiply the size by a power of 2 (2x, 4x, 8x, etc.)</li>
-              <li><strong>Custom Dimensions:</strong> Specify exact width and/or height in pixels</li>
-            </ul>
-          </li>
-          <li style={{ marginBottom: '15px' }}>
-            <strong>Upload Your Image:</strong>
-            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
-              <li>Click "Choose PNG Files" to select your pixel art</li>
-              <li>Only PNG files are supported for best quality</li>
-            </ul>
-          </li>
-          <li style={{ marginBottom: '15px' }}>
-            <strong>Adjust Settings:</strong>
-            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
-              <li>For Scale: Select a preset scale or enter a custom power of 2</li>
-              <li>For Custom Dimensions: Enter desired width and/or height (one can be left empty to maintain aspect ratio)</li>
-            </ul>
-          </li>
-          <li style={{ marginBottom: '15px' }}>
-            <strong>Resize and Save:</strong>
-            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
-              <li>Click the resize button to generate your resized image</li>
-              <li>Customize the output filename if desired</li>
-              <li>Download the result or copy it directly to your clipboard</li>
-            </ul>
-          </li>
+        <li>Drop your pixel art image files into the upload area or click to select files</li>
+    <li>Choose a resize mode:
+      <ul>
+        <li><strong>Scale:</strong> Multiply the image size by a factor (e.g., 2x makes each pixel into 2x2)</li>
+        <li><strong>Custom Dimensions:</strong> Set specific width and/or height (maintains aspect ratio if only one is set)</li>
+      </ul>
+    </li>
+    <li>Customize the output filenames using these parameters:
+      <ul>
+        <li><code>{'{filename}'}</code> - Original filename</li>
+        <li><code>{'{width}'}</code> - Output width</li>
+        <li><code>{'{height}'}</code> - Output height</li>
+        <li><code>{'{scale}'}</code> - Scale factor (when using Scale mode)</li>
+        <li><code>{'{date}'}</code> - Timestamp of when the ZIP was created</li>
+      </ul>
+      Example: <code>{'{filename}'}_{'{width}'}x{'{height}'}</code> → "image_800x600.png"
+    </li>
+    <li>Click "Resize" to process your images</li>
+    <li>Preview the results and click "Download All as ZIP" to save your resized images</li>
         </ol>
         <p style={{ marginTop: '15px', fontStyle: 'italic', color: '#444' }}>
           💡 Tip: For best results with pixel art, use the Scale option with power-of-2 values (2x, 4x, 8x, etc.)
