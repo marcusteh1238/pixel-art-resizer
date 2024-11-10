@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import JSZip from 'jszip';
 import { buttonStyle, scrollableContainerStyle, imageContainerStyle, imageWrapperStyle, imageStyle, removeButtonStyle, dimensionsStyle, sectionContainerStyle, sectionHeaderStyle, listStyle } from './styles';
 
@@ -21,29 +21,30 @@ const App: React.FC = () => {
     original: ImageData[];
     resized: ImageData[];
   }>({ original: [], resized: [] });
-  const [scale, setScale] = useState<number>(2);
-  const [customScale, setCustomScale] = useState<string>('');
-  const [resizeMode, setResizeMode] = useState<ResizeMode>('scale');
-  const [targetWidth, setTargetWidth] = useState<string>('');
-  const [targetHeight, setTargetHeight] = useState<string>('');
-  const [zipFilename, setZipFilename] = useState<string>(
-    `resized-images-{date}`
-  );
-  const [filenameTemplate, setFilenameTemplate] = useState<string>(
-    resizeMode === 'scale' ? '{filename}_x{scale}' : '{filename}_{width}x{height}'
-  );
+  const [resizeConfig, setResizeConfig] = useState({
+    mode: 'scale' as ResizeMode,
+    scale: 2,
+    customScale: '',
+    targetWidth: '',
+    targetHeight: ''
+  });
+  const [filenameConfig, setFilenameConfig] = useState({
+    zipFilename: `resized-images-{date}`,
+    template: '{filename}_x{scale}'
+  });
 
   useEffect(() => {
-    setFilenameTemplate(
-      resizeMode === 'scale' ? '{filename}_x{scale}' : '{filename}_{width}x{height}'
-    );
-  }, [resizeMode]);
+    setFilenameConfig(prev => ({
+      ...prev,
+      template: resizeConfig.mode === 'scale' ? '{filename}_x{scale}' : '{filename}_{width}x{height}'
+    }));
+  }, [resizeConfig.mode]);
 
   
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (event: RadioChangeEvent) => {
+  const handleImageUpload = useCallback((event: RadioChangeEvent) => {
     const files = event.target.files;
     if (!files) return;
 
@@ -79,7 +80,7 @@ const App: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, [images.original]);
 
   const resizeImages = () => {
     setImages(prev => ({ ...prev, resized: [] }));
@@ -113,10 +114,10 @@ const App: React.FC = () => {
 
   const handleCustomScaleChange = (e: RadioChangeEvent) => {
     const value = e.target.value;
-    setCustomScale(value);
+    setResizeConfig(prev => ({ ...prev, customScale: value }));
     const numValue = parseInt(value);
     if (numValue && numValue > 0) {
-      setScale(numValue);
+      setResizeConfig(prev => ({ ...prev, scale: numValue }));
     }
   };
 
@@ -125,13 +126,13 @@ const App: React.FC = () => {
     let targetW: number;
     let targetH: number;
     
-    if (resizeMode === 'scale') {
-      targetW = img.width * scale;
-      targetH = img.height * scale;
+    if (resizeConfig.mode === 'scale') {
+      targetW = img.width * resizeConfig.scale;
+      targetH = img.height * resizeConfig.scale;
     } else {
       // For custom dimensions mode
-      const width = targetWidth ? parseInt(targetWidth) : 0;
-      const height = targetHeight ? parseInt(targetHeight) : 0;
+      const width = resizeConfig.targetWidth ? parseInt(resizeConfig.targetWidth) : 0;
+      const height = resizeConfig.targetHeight ? parseInt(resizeConfig.targetHeight) : 0;
       
       if (width && !height) {
         targetW = width;
@@ -191,7 +192,7 @@ const App: React.FC = () => {
       .replace(/{height}/g, image.dimensions.height.toString())
     }
     return text
-      .replace(/{scale}/g, scale.toString())
+      .replace(/{scale}/g, resizeConfig.scale.toString())
       .replace(/{date}/g, getFormattedDate());
   };
 
@@ -212,26 +213,26 @@ const App: React.FC = () => {
           <input
             type="radio"
             value="scale"
-            checked={resizeMode === 'scale'}
-            onChange={(e) => setResizeMode(e.target.value as ResizeMode)}
+            checked={resizeConfig.mode === 'scale'}
+            onChange={(e) => setResizeConfig(prev => ({ ...prev, mode: e.target.value as ResizeMode }))}
           /> Scale
         </label>
         <label style={{ marginLeft: '20px' }}>
           <input
             type="radio"
             value="dimensions"
-            checked={resizeMode === 'dimensions'}
-            onChange={(e) => setResizeMode(e.target.value as ResizeMode)}
+            checked={resizeConfig.mode === 'dimensions'}
+            onChange={(e) => setResizeConfig(prev => ({ ...prev, mode: e.target.value as ResizeMode }))}
           /> Custom Dimensions
         </label>
       </div>
 
-      {resizeMode === 'scale' ? (
+      {resizeConfig.mode === 'scale' ? (
         <div style={{ marginBottom: '20px' }}>
           <label>Select Scale: </label>
           <select 
-            value={scale} 
-            onChange={(e) => setScale(Number(e.target.value))}
+            value={resizeConfig.scale} 
+            onChange={(e) => setResizeConfig(prev => ({ ...prev, scale: Number(e.target.value) }))}
             style={{ marginRight: '10px' }}
           >
             <option value={2}>2x</option>
@@ -244,7 +245,7 @@ const App: React.FC = () => {
             Custom Scale (any positive integer):
             <input
               type="number"
-              value={customScale}
+              value={resizeConfig.customScale}
               onChange={handleCustomScaleChange}
               style={{ marginLeft: '5px', width: '70px' }}
             />
@@ -256,8 +257,8 @@ const App: React.FC = () => {
             Width:
             <input
               type="number"
-              value={targetWidth}
-              onChange={(e) => setTargetWidth(e.target.value)}
+              value={resizeConfig.targetWidth}
+              onChange={(e) => setResizeConfig(prev => ({ ...prev, targetWidth: e.target.value }))}
               style={{ marginLeft: '5px', width: '70px', marginRight: '20px' }}
             />
           </label>
@@ -265,8 +266,8 @@ const App: React.FC = () => {
             Height:
             <input
               type="number"
-              value={targetHeight}
-              onChange={(e) => setTargetHeight(e.target.value)}
+              value={resizeConfig.targetHeight}
+              onChange={(e) => setResizeConfig(prev => ({ ...prev, targetHeight: e.target.value }))}
               style={{ marginLeft: '5px', width: '70px' }}
             />
           </label>
@@ -311,7 +312,7 @@ const App: React.FC = () => {
             onClick={resizeImages} 
             style={{ ...buttonStyle, marginTop: '10px' }}
           >
-            {resizeMode === 'scale' ? `Resize All by ${scale}x` : 'Resize All to dimensions'}
+            {resizeConfig.mode === 'scale' ? `Resize All by ${resizeConfig.scale}x` : 'Resize All to dimensions'}
           </button>
           
           <h3>Original Images</h3>
@@ -365,8 +366,8 @@ const App: React.FC = () => {
               <span style={{ width: '180px', whiteSpace: 'nowrap' }}>ZIP filename:</span>
               <input
                 type="text"
-                value={zipFilename}
-                onChange={(e) => setZipFilename(e.target.value)}
+                value={filenameConfig.zipFilename}
+                onChange={(e) => setFilenameConfig(prev => ({ ...prev, zipFilename: e.target.value }))}
                 placeholder="resized-images"
                 style={{ marginLeft: '10px', width: '380px' }}
               />
@@ -379,8 +380,8 @@ const App: React.FC = () => {
               <span style={{ width: '180px', whiteSpace: 'nowrap' }}>New Filename:</span>
               <input
                 type="text"
-                value={filenameTemplate}
-                onChange={(e) => setFilenameTemplate(e.target.value)}
+                value={filenameConfig.template}
+                onChange={(e) => setFilenameConfig(prev => ({ ...prev, template: e.target.value }))}
                 placeholder="e.g. {filename}_{width}x{height}"
                 style={{ marginLeft: '10px', width: '380px' }}
               />
@@ -392,7 +393,7 @@ const App: React.FC = () => {
               images.resized.forEach((img) => {
                 const imageData = img.url.split(',')[1];
                 zip.file(
-                  `${processTemplate(filenameTemplate, img)}.png`, 
+                  `${processTemplate(filenameConfig.template, img)}.png`, 
                   imageData, 
                   {base64: true}
                 );
@@ -401,7 +402,7 @@ const App: React.FC = () => {
               const content = await zip.generateAsync({type: 'blob'});
               const link = document.createElement('a');
               link.href = URL.createObjectURL(content);
-              link.download = `${processTemplate(zipFilename)}.zip`;
+              link.download = `${processTemplate(filenameConfig.zipFilename)}.zip`;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
@@ -436,7 +437,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                   <div style={dimensionsStyle}>
-                    <div>{processTemplate(filenameTemplate, img)}.png</div>
+                    <div>{processTemplate(filenameConfig.template, img)}.png</div>
                     <div>{img.dimensions.width} x {img.dimensions.height}px</div>
                   </div>
                   <div>
@@ -444,7 +445,7 @@ const App: React.FC = () => {
                       onClick={() => {
                         const link = document.createElement('a');
                         link.href = img.url;
-                        link.download = `${img.filename}.png`;
+                        link.download = `${processTemplate(filenameConfig.template, img)}.png`;
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
