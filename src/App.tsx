@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 const App: React.FC = () => {
   const [originalImages, setOriginalImages] = useState<Array<{
@@ -17,11 +17,6 @@ const App: React.FC = () => {
   const [resizeMode, setResizeMode] = useState<'scale' | 'dimensions'>('scale');
   const [targetWidth, setTargetWidth] = useState<string>('');
   const [targetHeight, setTargetHeight] = useState<string>('');
-  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [finalDimensions, setFinalDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [outputFilename, setOutputFilename] = useState<string>('resized_image');
-  const [originalFilename, setOriginalFilename] = useState<string>('');
-  const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   const imageStyle = {
     border: '1px solid black',
@@ -37,7 +32,11 @@ const App: React.FC = () => {
     border: '1px solid #ddd',
     borderRadius: '4px',
     cursor: 'pointer',
-    margin: '0 5px'
+    margin: '0 5px',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    display: 'inline-block',
+    fontFamily: 'inherit'
   } as const;
 
   const sectionContainerStyle = {
@@ -59,6 +58,26 @@ const App: React.FC = () => {
     paddingLeft: '20px'
   };
 
+  const scrollableContainerStyle = {
+    display: 'flex',
+    gap: '20px',
+    overflowX: 'auto',
+    padding: '20px 0',
+    WebkitOverflowScrolling: 'touch',
+    maxWidth: '100vw',
+    margin: '0 auto',
+    justifyContent: 'center'
+  } as const;
+
+  const imageContainerStyle = {
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center'
+  } as const;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -69,17 +88,29 @@ const App: React.FC = () => {
         reader.onload = () => {
           const img = new Image();
           img.onload = () => {
-            setOriginalImages(prev => [...prev, {
-              file: reader.result as string,
-              filename: file.name.replace(/\.[^/.]+$/, ''),
-              dimensions: { width: img.width, height: img.height }
-            }]);
+            const isDuplicate = originalImages.some(
+              existingImg => existingImg.filename === file.name.replace(/\.[^/.]+$/, '')
+            );
+
+            if (!isDuplicate) {
+              setOriginalImages(prev => [...prev, {
+                file: reader.result as string,
+                filename: file.name.replace(/\.[^/.]+$/, ''),
+                dimensions: { width: img.width, height: img.height }
+              }]);
+            } else {
+              alert(`Skipped duplicate image: ${file.name}`);
+            }
           };
           img.src = reader.result as string;
         };
         reader.readAsDataURL(file);
       }
     });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const resizeImages = () => {
@@ -173,6 +204,17 @@ const App: React.FC = () => {
     return canvas;
   };
 
+  const removeImage = (index: number) => {
+    setOriginalImages(prev => prev.filter((_, i) => i !== index));
+    // Also clear corresponding resized image if it exists
+    setResizedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllImages = () => {
+    setOriginalImages([]);
+    setResizedImages([]);
+  };
+
   return (
     <div style={{ textAlign: 'center', marginTop: '50px' }}>
       <h1>Pixel Art Resizer</h1>
@@ -244,12 +286,10 @@ const App: React.FC = () => {
       )}
 
       <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-        <label style={{
-          ...buttonStyle,
-          display: 'inline-block'
-        }}>
-          Choose PNG Files
+        <label style={buttonStyle}>
+          Add PNG Files
           <input 
+            ref={fileInputRef}
             type="file" 
             accept="image/png" 
             onChange={handleImageUpload}
@@ -260,29 +300,48 @@ const App: React.FC = () => {
           />
         </label>
         {originalImages.length > 0 && (
-          <div style={{ 
-            marginTop: '10px',
-            color: '#666'
-          }}>
-            Selected: {originalImages.length} image(s)
-          </div>
+          <>
+            <button 
+              onClick={clearAllImages}
+              style={buttonStyle}
+            >
+              Clear All Images
+            </button>
+            <div style={{ 
+              marginTop: '10px',
+              color: '#666'
+            }}>
+              Selected: {originalImages.length} image(s)
+            </div>
+          </>
         )}
       </div>
 
       {originalImages.length > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3>Original Images</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px' }}>
-            {originalImages.map((img, index) => (
-              <div key={index}>
-                <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
-                <img
-                  src={img.file}
-                  alt={`Original ${index + 1}`}
-                  style={imageStyle}
-                />
-              </div>
-            ))}
+          <div style={{ maxWidth: '100vw', margin: '0 auto' }}>
+            <div style={scrollableContainerStyle}>
+              {originalImages.map((img, index) => (
+                <div key={index} style={imageContainerStyle}>
+                  <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
+                  <img
+                    src={img.file}
+                    alt={`Original ${index + 1}`}
+                    style={imageStyle}
+                  />
+                  <button
+                    onClick={() => removeImage(index)}
+                    style={{
+                      ...buttonStyle,
+                      marginTop: '10px'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           <button 
             onClick={resizeImages} 
@@ -296,52 +355,54 @@ const App: React.FC = () => {
       {resizedImages.length > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3>Resized Images</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px' }}>
-            {resizedImages.map((img, index) => (
-              <div key={index}>
-                <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
-                <img 
-                  src={img.url} 
-                  alt={`Resized ${index + 1}`}
-                  style={imageStyle}
-                />
-                <div>
-                  <button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = img.url;
-                      link.download = `${img.filename}.png`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    style={buttonStyle}
-                  >
-                    Download
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(img.url);
-                        const blob = await response.blob();
-                        await navigator.clipboard.write([
-                          new ClipboardItem({
-                            [blob.type]: blob
-                          })
-                        ]);
-                        alert('Image copied to clipboard!');
-                      } catch (err) {
-                        console.error('Failed to copy:', err);
-                        alert('Failed to copy image to clipboard');
-                      }
-                    }}
-                    style={buttonStyle}
-                  >
-                    Copy
-                  </button>
+          <div style={{ maxWidth: '100vw', margin: '0 auto' }}>
+            <div style={scrollableContainerStyle}>
+              {resizedImages.map((img, index) => (
+                <div key={index} style={imageContainerStyle}>
+                  <p>{img.filename} ({img.dimensions.width}x{img.dimensions.height})</p>
+                  <img 
+                    src={img.url} 
+                    alt={`Resized ${index + 1}`}
+                    style={imageStyle}
+                  />
+                  <div>
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = img.url;
+                        link.download = `${img.filename}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      style={buttonStyle}
+                    >
+                      Download
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(img.url);
+                          const blob = await response.blob();
+                          await navigator.clipboard.write([
+                            new ClipboardItem({
+                              [blob.type]: blob
+                            })
+                          ]);
+                          alert('Image copied to clipboard!');
+                        } catch (err) {
+                          console.error('Failed to copy:', err);
+                          alert('Failed to copy image to clipboard');
+                        }
+                      }}
+                      style={buttonStyle}
+                    >
+                      Copy
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
