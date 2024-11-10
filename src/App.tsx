@@ -1,26 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import JSZip from 'jszip';
 import { buttonStyle, scrollableContainerStyle, imageContainerStyle, imageWrapperStyle, imageStyle, removeButtonStyle, dimensionsStyle, sectionContainerStyle, sectionHeaderStyle, listStyle } from './styles';
+import { handleDimensionsResize, loadImage } from './utils/imageUtils';
+import { ResizeConfig, ResizeMode, ImageData } from './utils/types';
+import { processTemplate } from './utils/fileUtils';
+import { downloadSingleImage, downloadZip } from './utils/downloadUtils';
 
-// Add proper type for resize mode
-type ResizeMode = 'scale' | 'dimensions';
-
-// Add proper type for the event handlers
 type RadioChangeEvent = React.ChangeEvent<HTMLInputElement>;
-
-// Consider extracting this interface to a separate types file
-interface ImageData {
-  url: string;
-  filename: string;
-  dimensions: { width: number; height: number; };
-}
 
 const App: React.FC = () => {
   const [images, setImages] = useState<{
     original: ImageData[];
     resized: ImageData[];
   }>({ original: [], resized: [] });
-  const [resizeConfig, setResizeConfig] = useState({
+  const [resizeConfig, setResizeConfig] = useState<ResizeConfig>({
     mode: 'scale' as ResizeMode,
     scale: 2,
     customScale: '',
@@ -43,38 +35,31 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = useCallback((event: RadioChangeEvent) => {
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    for (const file of Array.from(files)) {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            const isDuplicate = images.original.some(
-              existingImg => existingImg.filename === file.name.replace(/\.[^/.]+$/, '')
-            );
+        try {
+          const imageData = await loadImage(file);
+          const isDuplicate = images.original.some(
+            existingImg => existingImg.filename === imageData.filename
+          );
 
-            if (!isDuplicate) {
-              setImages(prev => ({
-                ...prev,
-                original: [...prev.original, {
-                  url: reader.result as string,
-                  filename: file.name.replace(/\.[^/.]+$/, ''),
-                  dimensions: { width: img.width, height: img.height }
-                }]
-              }));
-            } else {
-              alert(`Skipped duplicate image: ${file.name}`);
-            }
-          };
-          img.src = reader.result as string;
-        };
-        reader.readAsDataURL(file);
+          if (!isDuplicate) {
+            setImages(prev => ({
+              ...prev,
+              original: [...prev.original, imageData]
+            }));
+          } else {
+            alert(`Skipped duplicate image: ${file.name}`);
+          }
+        } catch (error) {
+          console.error('Failed to load image:', error);
+        }
       }
-    });
+    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -93,7 +78,7 @@ const App: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const resizedCanvas = handleDimensionsResize(img, ctx, canvas);
+        const resizedCanvas = handleDimensionsResize(img, ctx, canvas, resizeConfig);
         const newDimensions = { 
           width: resizedCanvas.width, 
           height: resizedCanvas.height 
@@ -120,79 +105,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDimensionsResize = (img: HTMLImageElement, ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-    // For scale mode, calculate width and height from scale
-    let targetW: number;
-    let targetH: number;
-    
-    if (resizeConfig.mode === 'scale') {
-      targetW = img.width * resizeConfig.scale;
-      targetH = img.height * resizeConfig.scale;
-    } else {
-      // For custom dimensions mode
-      const width = resizeConfig.targetWidth ? parseInt(resizeConfig.targetWidth) : 0;
-      const height = resizeConfig.targetHeight ? parseInt(resizeConfig.targetHeight) : 0;
-      
-      if (width && !height) {
-        targetW = width;
-        targetH = Math.round(img.height * (width / img.width));
-      } else if (height && !width) {
-        targetH = height;
-        targetW = Math.round(img.width * (height / img.height));
-      } else {
-        targetW = width || img.width;
-        targetH = height || img.height;
-      }
-    }
-
-    // Find the power of 2 scale factor needed
-    const scaleX = Math.ceil(Math.log2(targetW / img.width));
-    const scaleY = Math.ceil(Math.log2(targetH / img.height));
-    const powerScale = Math.max(scaleX, scaleY);
-    const upscaleFactor = Math.pow(2, powerScale);
-
-    // First upscale to power of 2
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return canvas;
-
-    tempCanvas.width = img.width * upscaleFactor;
-    tempCanvas.height = img.height * upscaleFactor;
-    tempCtx.imageSmoothingEnabled = false;
-    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-
-    // Then downscale to target size
-    canvas.width = targetW;
-    canvas.height = targetH;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tempCanvas, 0, 0, targetW, targetH);
-
-    return canvas;
-  };
-
   const clearAllImages = () => {
     setImages(prev => ({ ...prev, original: [], resized: [] }));
-  };
-
-  const getFormattedDate = () => {
-    const date = new Date().toISOString();
-    // remove milliseconds part
-    const splitted = date.split('.');
-    return splitted.slice(0, -1).join('.');
-  };
-
-
-  const processTemplate = (template: string, image?: { filename: string, dimensions: { width: number, height: number } }) => {
-    let text = template;
-    if (image) {
-      text = text
-      .replace(/{filename}/g, image.filename)
-      .replace(/{width}/g, image.dimensions.width.toString())
-      .replace(/{height}/g, image.dimensions.height.toString())
-    }
-    return text
-      .replace(/{scale}/g, resizeConfig.scale.toString())
-      .replace(/{date}/g, getFormattedDate());
   };
 
   const removeImage = (index: number) => {
@@ -388,24 +302,13 @@ const App: React.FC = () => {
           </div>
           <button 
             onClick={async () => {
-              const zip = new JSZip();
-              images.resized.forEach((img) => {
-                const imageData = img.url.split(',')[1];
-                zip.file(
-                  `${processTemplate(filenameConfig.template, img)}.png`, 
-                  imageData, 
-                  {base64: true}
-                );
-              });
-              
-              const content = await zip.generateAsync({type: 'blob'});
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(content);
-              link.download = `${processTemplate(filenameConfig.zipFilename)}.zip`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(link.href);
+              const processedZipFilename = processTemplate(filenameConfig.zipFilename, undefined, resizeConfig);
+              downloadZip(
+                images.resized,
+                processedZipFilename,
+                filenameConfig.template,
+                resizeConfig
+              );
             }}
             style={{...buttonStyle, marginBottom: '15px'}}
           >
@@ -436,18 +339,13 @@ const App: React.FC = () => {
                     </button>
                   </div>
                   <div style={dimensionsStyle}>
-                    <div>{processTemplate(filenameConfig.template, img)}.png</div>
+                    <div>{processTemplate(filenameConfig.template, img, resizeConfig)}.png</div>
                     <div>{img.dimensions.width} x {img.dimensions.height}px</div>
                   </div>
                   <div>
                     <button
                       onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = img.url;
-                        link.download = `${processTemplate(filenameConfig.template, img)}.png`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        downloadSingleImage(img.url, processTemplate(filenameConfig.template, img, resizeConfig));
                       }}
                       style={buttonStyle}
                     >
