@@ -2,17 +2,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import JSZip from 'jszip';
 
+interface ImageData {
+  url: string;
+  filename: string;
+  dimensions: { width: number; height: number; };
+}
+
 const App: React.FC = () => {
-  const [originalImages, setOriginalImages] = useState<Array<{
-    file: string;
-    filename: string;
-    dimensions: { width: number; height: number; };
-  }>>([]);
-  const [resizedImages, setResizedImages] = useState<Array<{
-    url: string;
-    filename: string;
-    dimensions: { width: number; height: number; };
-  }>>([]);
+  const [images, setImages] = useState<{
+    original: ImageData[];
+    resized: ImageData[];
+  }>({ original: [], resized: [] });
   const [scale, setScale] = useState<number>(2);
   const [customScale, setCustomScale] = useState<string>('');
   const [resizeMode, setResizeMode] = useState<'scale' | 'dimensions'>('scale');
@@ -133,16 +133,19 @@ const App: React.FC = () => {
         reader.onload = () => {
           const img = new Image();
           img.onload = () => {
-            const isDuplicate = originalImages.some(
+            const isDuplicate = images.original.some(
               existingImg => existingImg.filename === file.name.replace(/\.[^/.]+$/, '')
             );
 
             if (!isDuplicate) {
-              setOriginalImages(prev => [...prev, {
-                file: reader.result as string,
-                filename: file.name.replace(/\.[^/.]+$/, ''),
-                dimensions: { width: img.width, height: img.height }
-              }]);
+              setImages(prev => ({
+                ...prev,
+                original: [...prev.original, {
+                  url: reader.result as string,
+                  filename: file.name.replace(/\.[^/.]+$/, ''),
+                  dimensions: { width: img.width, height: img.height }
+                }]
+              }));
             } else {
               alert(`Skipped duplicate image: ${file.name}`);
             }
@@ -159,11 +162,11 @@ const App: React.FC = () => {
   };
 
   const resizeImages = () => {
-    setResizedImages([]);
+    setImages(prev => ({ ...prev, resized: [] }));
 
-    originalImages.forEach(originalImage => {
+    images.original.forEach(originalImage => {
       const img = new Image();
-      img.src = originalImage.file;
+      img.src = originalImage.url;
       
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -176,11 +179,14 @@ const App: React.FC = () => {
           height: resizedCanvas.height 
         };
 
-        setResizedImages(prev => [...prev, {
-          url: resizedCanvas.toDataURL('image/png'),
-          filename: originalImage.filename,
-          dimensions: newDimensions
-        }]);
+        setImages(prev => ({
+          ...prev,
+          resized: [...prev.resized, {
+            url: resizedCanvas.toDataURL('image/png'),
+            filename: originalImage.filename,
+            dimensions: newDimensions
+          }]
+        }));
       };
     });
   };
@@ -245,8 +251,7 @@ const App: React.FC = () => {
   };
 
   const clearAllImages = () => {
-    setOriginalImages([]);
-    setResizedImages([]);
+    setImages(prev => ({ ...prev, original: [], resized: [] }));
   };
 
   const getFormattedDate = () => {
@@ -271,8 +276,11 @@ const App: React.FC = () => {
   };
 
   const removeImage = (index: number) => {
-    setOriginalImages(prev => prev.filter((_, i) => i !== index));
-    setResizedImages(prev => prev.filter((_, i) => i !== index));
+    setImages(prev => ({
+      ...prev,
+      original: prev.original.filter((_, i) => i !== index),
+      resized: prev.resized.filter((_, i) => i !== index)
+    }));
   };
 
   return (
@@ -359,7 +367,7 @@ const App: React.FC = () => {
             }}
           />
         </label>
-        {originalImages.length > 0 && (
+        {images.original.length > 0 && (
           <>
             <button 
               onClick={clearAllImages}
@@ -371,18 +379,25 @@ const App: React.FC = () => {
               marginTop: '10px',
               color: '#666'
             }}>
-              Selected: {originalImages.length} image(s)
+              Selected: {images.original.length} image(s)
             </div>
           </>
         )}
       </div>
 
-      {originalImages.length > 0 && (
+      {images.original.length > 0 && (
         <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={resizeImages} 
+            style={{ ...buttonStyle, marginTop: '10px' }}
+          >
+            {resizeMode === 'scale' ? `Resize All by ${scale}x` : 'Resize All to dimensions'}
+          </button>
+          
           <h3>Original Images</h3>
           <div style={{ maxWidth: '100vw', margin: '0 auto' }}>
             <div style={scrollableContainerStyle}>
-              {originalImages.map((img, index) => (
+              {images.original.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
                   <div 
                     style={imageWrapperStyle}
@@ -395,7 +410,7 @@ const App: React.FC = () => {
                       if (button) button.style.opacity = '0';
                     }}
                   >
-                    <img src={img.file} alt={img.filename} style={imageStyle} />
+                    <img src={img.url} alt={img.filename} style={imageStyle} />
                     <button
                       onClick={() => removeImage(index)}
                       style={removeButtonStyle}
@@ -412,16 +427,10 @@ const App: React.FC = () => {
               ))}
             </div>
           </div>
-          <button 
-            onClick={resizeImages} 
-            style={{ ...buttonStyle, marginTop: '10px' }}
-          >
-            {resizeMode === 'scale' ? `Resize All by ${scale}x` : 'Resize All to dimensions'}
-          </button>
         </div>
       )}
 
-      {resizedImages.length > 0 && (
+      {images.resized.length > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3>Resized Images</h3>
           <div style={{ 
@@ -460,7 +469,7 @@ const App: React.FC = () => {
           <button 
             onClick={async () => {
               const zip = new JSZip();
-              resizedImages.forEach((img) => {
+              images.resized.forEach((img) => {
                 const imageData = img.url.split(',')[1];
                 zip.file(
                   `${processTemplate(filenameTemplate, img)}.png`, 
@@ -484,7 +493,7 @@ const App: React.FC = () => {
           </button>
           <div style={{ maxWidth: '100vw', margin: '0 auto' }}>
             <div style={scrollableContainerStyle}>
-              {resizedImages.map((img, index) => (
+              {images.resized.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
                   <div 
                     style={imageWrapperStyle}
