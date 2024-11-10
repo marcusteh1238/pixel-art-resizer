@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [finalDimensions, setFinalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [outputFilename, setOutputFilename] = useState<string>('resized_image');
   const [originalFilename, setOriginalFilename] = useState<string>('');
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   const imageStyle = {
     border: '1px solid black',
@@ -22,9 +23,38 @@ const App: React.FC = () => {
     height: 'auto'
   } as const;
 
+  const buttonStyle = {
+    padding: '8px 12px',
+    backgroundColor: '#f0f0f0',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    margin: '0 5px'
+  } as const;
+
+  const sectionContainerStyle = {
+    padding: '20px',
+    maxWidth: '800px',
+    margin: '50px auto 0',
+    borderTop: '1px solid #eee',
+    color: '#333',
+    lineHeight: '1.6'
+  } as const;
+
+  const sectionHeaderStyle = {
+    color: '#222',
+    marginBottom: '15px'
+  } as const;
+
+  const listStyle = {
+    textAlign: 'left' as const,
+    paddingLeft: '20px'
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
+      setSelectedFileName(file.name);
       const filename = file.name.replace(/\.[^/.]+$/, '');
       setOriginalFilename(filename);
       
@@ -46,32 +76,37 @@ const App: React.FC = () => {
 
     const img = new Image();
     img.src = originalImage;
-    const handleScaleResize = (img: HTMLImageElement, ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return canvas;
-    };
 
     const handleDimensionsResize = (img: HTMLImageElement, ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-      const width = targetWidth ? parseInt(targetWidth) : 0;
-      const height = targetHeight ? parseInt(targetHeight) : 0;
+      // For scale mode, calculate width and height from scale
+      let targetW: number;
+      let targetH: number;
       
-      // Calculate target dimensions
-      let targetW = width;
-      let targetH = height;
-      if (width && !height) {
-        targetH = Math.round(img.height * (width / img.width));
-      } else if (height && !width) {
-        targetW = Math.round(img.width * (height / img.height));
+      if (resizeMode === 'scale') {
+        targetW = img.width * scale;
+        targetH = img.height * scale;
+      } else {
+        // For custom dimensions mode
+        const width = targetWidth ? parseInt(targetWidth) : 0;
+        const height = targetHeight ? parseInt(targetHeight) : 0;
+        
+        if (width && !height) {
+          targetW = width;
+          targetH = Math.round(img.height * (width / img.width));
+        } else if (height && !width) {
+          targetH = height;
+          targetW = Math.round(img.width * (height / img.height));
+        } else {
+          targetW = width || img.width;
+          targetH = height || img.height;
+        }
       }
 
       // Find the power of 2 scale factor needed
       const scaleX = Math.ceil(Math.log2(targetW / img.width));
       const scaleY = Math.ceil(Math.log2(targetH / img.height));
-      const scale = Math.max(scaleX, scaleY);
-      const upscaleFactor = Math.pow(2, scale);
+      const powerScale = Math.max(scaleX, scaleY);
+      const upscaleFactor = Math.pow(2, powerScale);
 
       // First upscale to power of 2
       const tempCanvas = document.createElement('canvas');
@@ -98,10 +133,7 @@ const App: React.FC = () => {
 
       if (!ctx) return;
 
-      const resizedCanvas = resizeMode === 'scale' 
-        ? handleScaleResize(img, ctx, canvas)
-        : handleDimensionsResize(img, ctx, canvas);
-
+      const resizedCanvas = handleDimensionsResize(img, ctx, canvas);
       setFinalDimensions({ width: resizedCanvas.width, height: resizedCanvas.height });
 
       const newDimensions = resizeMode === 'scale' 
@@ -116,7 +148,7 @@ const App: React.FC = () => {
     const value = e.target.value;
     setCustomScale(value);
     const numValue = parseInt(value);
-    if (numValue && numValue > 1 && Number.isInteger(Math.log2(numValue))) {
+    if (numValue && numValue > 0) {
       setScale(numValue);
     }
   };
@@ -159,7 +191,7 @@ const App: React.FC = () => {
             <option value={32}>32x</option>
           </select>
           <label>
-            Custom (power of 2):
+            Custom Scale (any positive integer):
             <input
               type="number"
               value={customScale}
@@ -191,7 +223,30 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <input type="file" accept="image/png" onChange={handleImageUpload} />
+      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <label style={{
+          ...buttonStyle,
+          display: 'inline-block'
+        }}>
+          Choose PNG File
+          <input 
+            type="file" 
+            accept="image/png" 
+            onChange={handleImageUpload}
+            style={{
+              display: 'none'
+            }}
+          />
+        </label>
+        {selectedFileName && (
+          <div style={{ 
+            marginTop: '10px',
+            color: '#666'
+          }}>
+            Selected: {selectedFileName}
+          </div>
+        )}
+      </div>
 
       {originalImage && (
         <div style={{ marginTop: '20px' }}>
@@ -202,7 +257,10 @@ const App: React.FC = () => {
             style={imageStyle}
           />
           <br />
-          <button onClick={resizeImage} style={{ marginTop: '10px' }}>
+          <button 
+            onClick={resizeImage} 
+            style={{ ...buttonStyle, marginTop: '10px' }}
+          >
             {resizeMode === 'scale' ? `Resize by ${scale}x` : 'Resize to dimensions'}
           </button>
         </div>
@@ -212,48 +270,53 @@ const App: React.FC = () => {
         <div style={{ marginTop: '20px' }}>
           <h3>Resized Image {finalDimensions && `(${finalDimensions.width}x${finalDimensions.height})`}</h3>
           <div style={{ marginBottom: '10px' }}>
-            <label style={{ marginRight: '10px' }}>
-              Filename: 
-              <input
-                type="text"
-                value={outputFilename}
-                onChange={(e) => setOutputFilename(e.target.value)}
-                style={{ marginLeft: '5px' }}
-              />
-              .png
-            </label>
-            <button
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = resizedImageURL;
-                link.download = `${outputFilename}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              style={{ marginRight: '10px' }}
-            >
-              Download Resized Image
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  const response = await fetch(resizedImageURL);
-                  const blob = await response.blob();
-                  await navigator.clipboard.write([
-                    new ClipboardItem({
-                      [blob.type]: blob
-                    })
-                  ]);
-                  alert('Image copied to clipboard!');
-                } catch (err) {
-                  console.error('Failed to copy:', err);
-                  alert('Failed to copy image to clipboard');
-                }
-              }}
-            >
-              Copy to Clipboard
-            </button>
+            <div style={{ marginBottom: '10px' }}>
+              <label>
+                Filename: 
+                <input
+                  type="text"
+                  value={outputFilename}
+                  onChange={(e) => setOutputFilename(e.target.value)}
+                  style={{ marginLeft: '5px' }}
+                />
+                .png
+              </label>
+            </div>
+            <div>
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = resizedImageURL;
+                  link.download = `${outputFilename}.png`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                style={buttonStyle}
+              >
+                Download Resized Image
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(resizedImageURL);
+                    const blob = await response.blob();
+                    await navigator.clipboard.write([
+                      new ClipboardItem({
+                        [blob.type]: blob
+                      })
+                    ]);
+                    alert('Image copied to clipboard!');
+                  } catch (err) {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy image to clipboard');
+                  }
+                }}
+                style={buttonStyle}
+              >
+                Copy to Clipboard
+              </button>
+            </div>
           </div>
           <img 
             src={resizedImageURL} 
@@ -262,6 +325,86 @@ const App: React.FC = () => {
           />
         </div>
       )}
+
+      <div style={{...sectionContainerStyle, marginTop: '20px'}}>
+        <h3 style={sectionHeaderStyle}>How to Use This Pixel Art Resizer?</h3>
+        <ol style={listStyle}>
+          <li style={{ marginBottom: '15px' }}>
+            <strong>Choose Your Resize Method:</strong>
+            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
+              <li><strong>Scale:</strong> Multiply the size by a power of 2 (2x, 4x, 8x, etc.)</li>
+              <li><strong>Custom Dimensions:</strong> Specify exact width and/or height in pixels</li>
+            </ul>
+          </li>
+          <li style={{ marginBottom: '15px' }}>
+            <strong>Upload Your Image:</strong>
+            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
+              <li>Click "Choose PNG File" to select your pixel art</li>
+              <li>Only PNG files are supported for best quality</li>
+            </ul>
+          </li>
+          <li style={{ marginBottom: '15px' }}>
+            <strong>Adjust Settings:</strong>
+            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
+              <li>For Scale: Select a preset scale or enter a custom power of 2</li>
+              <li>For Custom Dimensions: Enter desired width and/or height (one can be left empty to maintain aspect ratio)</li>
+            </ul>
+          </li>
+          <li style={{ marginBottom: '15px' }}>
+            <strong>Resize and Save:</strong>
+            <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
+              <li>Click the resize button to generate your resized image</li>
+              <li>Customize the output filename if desired</li>
+              <li>Download the result or copy it directly to your clipboard</li>
+            </ul>
+          </li>
+        </ol>
+        <p style={{ marginTop: '15px', fontStyle: 'italic', color: '#444' }}>
+          💡 Tip: For best results with pixel art, use the Scale option with power-of-2 values (2x, 4x, 8x, etc.)
+        </p>
+      </div>
+
+      <div style={{
+        ...sectionContainerStyle,
+        marginTop: '20px'
+      }}>
+        <h3 style={sectionHeaderStyle}>Why Use This Pixel Art Resizer?</h3>
+        <ul style={{ 
+          ...listStyle,
+          listStyle: 'none',
+          padding: 0
+        }}>
+          <li style={{ marginBottom: '10px' }}>🎯 <strong>Pixel-Perfect Scaling:</strong> Uses nearest-neighbor interpolation to maintain sharp edges and prevent blurring</li>
+          <li style={{ marginBottom: '10px' }}>⚡ <strong>Power-of-2 Scaling:</strong> Ensures the highest quality upscaling for pixel art by using mathematically optimal scale factors</li>
+          <li style={{ marginBottom: '10px' }}>🖼️ <strong>Flexible Options:</strong> Choose between simple scaling (2x, 4x, etc.) or custom dimensions while maintaining pixel art quality</li>
+          <li style={{ marginBottom: '10px' }}>💻 <strong>Browser-Based:</strong> No need to install any software - works right in your browser</li>
+          <li style={{ marginBottom: '10px' }}>🔒 <strong>Privacy-Focused:</strong> All processing happens locally in your browser - your images never leave your device</li>
+        </ul>
+      </div>
+
+      <footer style={{
+        marginBottom: '25px',
+        color: '#666',
+        fontSize: '0.9rem'
+      }}>
+        <p>
+          Created by <a 
+            href="https://github.com/marcusteh1238" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: '#666' }}
+          >
+            Markers Duh
+          </a> | <a 
+            href="https://github.com/marcusteh1238/pixel-art-resizer" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: '#666' }}
+          >
+            Source Code
+          </a>
+        </p>
+      </footer>
     </div>
   );
 };
