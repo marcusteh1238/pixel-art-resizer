@@ -270,10 +270,9 @@ const App: React.FC = () => {
       .replace(/{date}/g, getFormattedDate());
   };
 
-  const removeImage = (indexToRemove: number) => {
-    setOriginalImages(prev => prev.filter((_, index) => index !== indexToRemove));
-    // Also remove the corresponding resized image if it exists
-    setResizedImages(prev => prev.filter((_, index) => index !== indexToRemove));
+  const removeImage = (index: number) => {
+    setOriginalImages(prev => prev.filter((_, i) => i !== index));
+    setResizedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -487,7 +486,26 @@ const App: React.FC = () => {
             <div style={scrollableContainerStyle}>
               {resizedImages.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
-                  <img src={img.url} alt={img.filename} style={imageStyle} />
+                  <div 
+                    style={imageWrapperStyle}
+                    onMouseEnter={(e) => {
+                      const button = e.currentTarget.querySelector('button');
+                      if (button) button.style.opacity = '1';
+                    }}
+                    onMouseLeave={(e) => {
+                      const button = e.currentTarget.querySelector('button');
+                      if (button) button.style.opacity = '0';
+                    }}
+                  >
+                    <img src={img.url} alt={img.filename} style={imageStyle} />
+                    <button
+                      onClick={() => removeImage(index)}
+                      style={removeButtonStyle}
+                      title="Remove image"
+                    >
+                      ×
+                    </button>
+                  </div>
                   <div style={dimensionsStyle}>
                     <div>{processTemplate(filenameTemplate, img)}.png</div>
                     <div>{img.dimensions.width} x {img.dimensions.height}px</div>
