@@ -1,7 +1,15 @@
 // src/App.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import JSZip from 'jszip';
+import { buttonStyle, scrollableContainerStyle, imageContainerStyle, imageWrapperStyle, imageStyle, removeButtonStyle, dimensionsStyle, sectionContainerStyle, sectionHeaderStyle, listStyle } from './styles';
 
+// Add proper type for resize mode
+type ResizeMode = 'scale' | 'dimensions';
+
+// Add proper type for the event handlers
+type RadioChangeEvent = React.ChangeEvent<HTMLInputElement>;
+
+// Consider extracting this interface to a separate types file
 interface ImageData {
   url: string;
   filename: string;
@@ -15,7 +23,7 @@ const App: React.FC = () => {
   }>({ original: [], resized: [] });
   const [scale, setScale] = useState<number>(2);
   const [customScale, setCustomScale] = useState<string>('');
-  const [resizeMode, setResizeMode] = useState<'scale' | 'dimensions'>('scale');
+  const [resizeMode, setResizeMode] = useState<ResizeMode>('scale');
   const [targetWidth, setTargetWidth] = useState<string>('');
   const [targetHeight, setTargetHeight] = useState<string>('');
   const [zipFilename, setZipFilename] = useState<string>(
@@ -31,99 +39,11 @@ const App: React.FC = () => {
     );
   }, [resizeMode]);
 
-  const imageStyle = {
-    border: '1px solid black',
-    maxWidth: '100vw',
-    maxHeight: '300px',
-    width: 'auto',
-    height: 'auto'
-  } as const;
-
-  const buttonStyle = {
-    padding: '8px 12px',
-    backgroundColor: '#f0f0f0',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    margin: '0 5px',
-    fontSize: '14px',
-    lineHeight: '1.5',
-    display: 'inline-block',
-    fontFamily: 'inherit'
-  } as const;
-
-  const sectionContainerStyle = {
-    padding: '20px',
-    maxWidth: '800px',
-    margin: '50px auto 0',
-    borderTop: '1px solid #eee',
-    color: '#333',
-    lineHeight: '1.6'
-  } as const;
-
-  const sectionHeaderStyle = {
-    color: '#222',
-    marginBottom: '15px'
-  } as const;
-
-  const listStyle = {
-    textAlign: 'left' as const,
-    paddingLeft: '20px'
-  };
-
-  const scrollableContainerStyle = {
-    display: 'flex',
-    gap: '20px',
-    overflowX: 'auto',
-    padding: '20px 0',
-    WebkitOverflowScrolling: 'touch',
-    maxWidth: '100vw',
-    margin: '0 auto',
-    justifyContent: 'center'
-  } as const;
-
-  const imageContainerStyle = {
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center'
-  } as const;
-
-  const dimensionsStyle: React.CSSProperties = {
-    textAlign: 'center',
-    fontSize: '14px',
-    color: '#666',
-    marginTop: '8px'
-  };
-
-  const imageWrapperStyle: React.CSSProperties = {
-    position: 'relative',
-  };
-
-  const removeButtonStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '5px',
-    right: '5px',
-    background: 'rgba(255, 0, 0, 0.7)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50%',
-    width: '24px',
-    height: '24px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '16px',
-    padding: '0',
-    lineHeight: '1',
-    opacity: 0,
-    transition: 'opacity 0.2s ease',
-  };
+  
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: RadioChangeEvent) => {
     const files = event.target.files;
     if (!files) return;
 
@@ -191,7 +111,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleCustomScaleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomScaleChange = (e: RadioChangeEvent) => {
     const value = e.target.value;
     setCustomScale(value);
     const numValue = parseInt(value);
@@ -293,7 +213,7 @@ const App: React.FC = () => {
             type="radio"
             value="scale"
             checked={resizeMode === 'scale'}
-            onChange={(e) => setResizeMode(e.target.value as 'scale' | 'dimensions')}
+            onChange={(e) => setResizeMode(e.target.value as ResizeMode)}
           /> Scale
         </label>
         <label style={{ marginLeft: '20px' }}>
@@ -301,7 +221,7 @@ const App: React.FC = () => {
             type="radio"
             value="dimensions"
             checked={resizeMode === 'dimensions'}
-            onChange={(e) => setResizeMode(e.target.value as 'scale' | 'dimensions')}
+            onChange={(e) => setResizeMode(e.target.value as ResizeMode)}
           /> Custom Dimensions
         </label>
       </div>
