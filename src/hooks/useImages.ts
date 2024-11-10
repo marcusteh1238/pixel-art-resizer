@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { ImageData } from '../utils/types';
+import { ImageInfo } from '../utils/types';
 import { loadImage } from '../utils/imageUtils';
 
 interface ImagesState {
-  original: ImageData[];
-  resized: ImageData[];
+  original: ImageInfo[];
+  resized: ImageInfo[];
 }
 
 export const useImages = () => {
@@ -52,7 +52,7 @@ export const useImages = () => {
     }));
   };
 
-  const setResizedImages = (resizedImages: ImageData[]) => {
+  const setResizedImages = (resizedImages: ImageInfo[]) => {
     setImages(prev => ({ ...prev, resized: resizedImages }));
   };
 

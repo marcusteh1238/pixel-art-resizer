@@ -1,12 +1,12 @@
 import { scrollableContainerStyle } from "../styles";
-import { ResizeConfig, ImageData } from "../utils/types";
+import { ResizeConfig, ImageInfo } from "../utils/types";
 import { ImageCard } from "./ImageCard";
 
 interface ImageGalleryProps {
-  images: ImageData[];
+  images: ImageInfo[];
   onRemove: (index: number) => void;
-  onDownload?: (image: ImageData) => void;
-  onCopy?: (image: ImageData) => void;
+  onDownload?: (image: ImageInfo) => void;
+  onCopy?: (image: ImageInfo) => void;
   filenameTemplate?: string;
   resizeConfig?: ResizeConfig;
   showControls?: boolean;

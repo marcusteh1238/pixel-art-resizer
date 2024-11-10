@@ -1,6 +1,6 @@
 import React from 'react';
 import { buttonStyle } from './styles';
-import { ImageData } from './utils/types';
+import { ImageInfo } from './utils/types';
 import { processTemplate } from './utils/fileUtils';
 import { downloadSingleImage } from './utils/downloadUtils';
 import { ImageUploader } from './components/ImageUploader';
@@ -35,28 +35,54 @@ const App: React.FC = () => {
     resizeImages(images.original, resizeConfig, setResizedImages);
   };
 
-  const handleDownload = (image: ImageData) => {
+  const handleDownload = (image: ImageInfo) => {
     downloadSingleImage(image.url, processTemplate(filenameConfig.template, image, resizeConfig));
   };
 
-  const handleCopy = async (image: ImageData) => {
+  const handleCopy = async (image: ImageInfo) => {
     try {
       const response = await fetch(image.url);
       const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [blob.type]: blob
-        })
-      ]);
-      alert('Image copied to clipboard!');
+      
+      if (navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [blob.type]: blob
+          })
+        ]);
+        alert('Image copied to clipboard!');
+      } else {
+        const img = document.createElement('img');
+        img.src = image.url;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = image.dimensions.width;
+        canvas.height = image.dimensions.height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const item = new ClipboardItem({ 'image/png': blob });
+              navigator.clipboard.write([item])
+                .then(() => alert('Image copied to clipboard!'))
+                .catch((err) => {
+                  console.error('Clipboard write failed:', err);
+                  alert('Unable to copy image. Your browser may not support this feature.');
+                });
+            }
+          }, 'image/png');
+        }
+      }
     } catch (err) {
       console.error('Failed to copy:', err);
-      alert('Failed to copy image to clipboard');
+      alert('Unable to copy image. This feature requires a secure (HTTPS) connection or localhost.');
     }
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '50px' }}>
+    <div style={{ textAlign: 'center' }}>
       <h1>Pixel Art Resizer</h1>
       
       <ResizeControls 

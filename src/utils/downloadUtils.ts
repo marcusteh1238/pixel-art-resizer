@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { processTemplate } from "./fileUtils";
-import { ResizeConfig, ImageData } from "./types";
+import { ResizeConfig, ImageInfo } from "./types";
 
 // Download Utils
 export const downloadSingleImage = (
@@ -16,7 +16,7 @@ export const downloadSingleImage = (
 };
 
 export const downloadZip = async (
-  images: ImageData[],
+  images: ImageInfo[],
   zipFilename: string,
   filenameTemplate: string,
   resizeConfig: ResizeConfig

@@ -1,13 +1,13 @@
 import { imageContainerStyle, imageWrapperStyle, imageStyle, removeButtonStyle, dimensionsStyle, buttonStyle } from "../styles";
 import { processTemplate } from "../utils/fileUtils";
-import { ResizeConfig, ImageData } from "../utils/types";
+import { ResizeConfig, ImageInfo } from "../utils/types";
 import { useState } from 'react';
 
 interface ImageCardProps {
-  image: ImageData;
+  image: ImageInfo;
   onRemove: () => void;
-  onDownload?: (image: ImageData) => void;
-  onCopy?: (image: ImageData) => void;
+  onDownload?: (image: ImageInfo) => void;
+  onCopy?: (image: ImageInfo) => void;
   filenameTemplate?: string;
   resizeConfig?: ResizeConfig;
   showControls?: boolean;

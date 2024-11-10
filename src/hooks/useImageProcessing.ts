@@ -1,13 +1,13 @@
 import { handleDimensionsResize } from '../utils/imageUtils';
-import { ImageData, ResizeConfig } from '../utils/types';
+import { ImageInfo, ResizeConfig } from '../utils/types';
 
 export const useImageProcessing = () => {
   const resizeImages = (
-    originalImages: ImageData[], 
+    originalImages: ImageInfo[], 
     resizeConfig: ResizeConfig,
-    onComplete: (resizedImages: ImageData[]) => void
+    onComplete: (resizedImages: ImageInfo[]) => void
   ) => {
-    const resizedImages: ImageData[] = [];
+    const resizedImages: ImageInfo[] = [];
 
     originalImages.forEach(originalImage => {
       const img = new Image();

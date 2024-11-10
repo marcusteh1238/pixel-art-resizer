@@ -1,4 +1,4 @@
-import { ResizeConfig, ImageData } from "./types";
+import { ResizeConfig, ImageInfo } from "./types";
 
 export const getFormattedDate = () => {
   const date = new Date().toISOString();
@@ -8,7 +8,7 @@ export const getFormattedDate = () => {
 
 export const processTemplate = (
   template: string,
-  image?: ImageData,
+  image?: ImageInfo,
   resizeConfig?: ResizeConfig
 ) => {
   let text = template;
