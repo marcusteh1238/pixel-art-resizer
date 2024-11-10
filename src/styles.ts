@@ -64,7 +64,7 @@ export const dimensionsStyle: React.CSSProperties = {
 };
 
 export const imageWrapperStyle: React.CSSProperties = {
-  position: 'relative',
+  position: 'relative'
 };
 
 export const removeButtonStyle: React.CSSProperties = {
@@ -85,5 +85,9 @@ export const removeButtonStyle: React.CSSProperties = {
   padding: '0',
   lineHeight: '1',
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: 'opacity 0.2s ease'
+};
+
+export const removeButtonHoverStyle: React.CSSProperties = {
+  opacity: 1
 };
