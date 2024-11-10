@@ -96,6 +96,31 @@ const App: React.FC = () => {
     marginTop: '8px'
   };
 
+  const imageWrapperStyle: React.CSSProperties = {
+    position: 'relative',
+  };
+
+  const removeButtonStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '5px',
+    right: '5px',
+    background: 'rgba(255, 0, 0, 0.7)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '24px',
+    height: '24px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px',
+    padding: '0',
+    lineHeight: '1',
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -245,6 +270,12 @@ const App: React.FC = () => {
       .replace(/{date}/g, getFormattedDate());
   };
 
+  const removeImage = (indexToRemove: number) => {
+    setOriginalImages(prev => prev.filter((_, index) => index !== indexToRemove));
+    // Also remove the corresponding resized image if it exists
+    setResizedImages(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
   return (
     <div style={{ textAlign: 'center', marginTop: '50px' }}>
       <h1>Pixel Art Resizer</h1>
@@ -354,7 +385,26 @@ const App: React.FC = () => {
             <div style={scrollableContainerStyle}>
               {originalImages.map((img, index) => (
                 <div key={index} style={imageContainerStyle}>
-                  <img src={img.file} alt={img.filename} style={imageStyle} />
+                  <div 
+                    style={imageWrapperStyle}
+                    onMouseEnter={(e) => {
+                      const button = e.currentTarget.querySelector('button');
+                      if (button) button.style.opacity = '1';
+                    }}
+                    onMouseLeave={(e) => {
+                      const button = e.currentTarget.querySelector('button');
+                      if (button) button.style.opacity = '0';
+                    }}
+                  >
+                    <img src={img.file} alt={img.filename} style={imageStyle} />
+                    <button
+                      onClick={() => removeImage(index)}
+                      style={removeButtonStyle}
+                      title="Remove image"
+                    >
+                      ×
+                    </button>
+                  </div>
                   <div style={dimensionsStyle}>
                     <div>{img.filename}.png</div>
                     <div>{img.dimensions.width} x {img.dimensions.height}px</div>
