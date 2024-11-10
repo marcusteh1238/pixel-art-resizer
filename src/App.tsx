@@ -83,6 +83,14 @@ const App: React.FC = () => {
 
   return (
     <div style={{ textAlign: 'center' }}>
+      <img 
+        src={process.env.PUBLIC_URL + '/logo.png'}
+        alt="Pixel Art Resizer Logo"
+        style={{
+          width: '128px',
+          height: '128px'
+        }}
+      />
       <h1>Pixel Art Resizer</h1>
       
       <ResizeControls 
