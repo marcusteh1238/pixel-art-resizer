@@ -1,5 +1,4 @@
-// src/App.tsx
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import { buttonStyle, scrollableContainerStyle, imageContainerStyle, imageWrapperStyle, imageStyle, removeButtonStyle, dimensionsStyle, sectionContainerStyle, sectionHeaderStyle, listStyle } from './styles';
 
