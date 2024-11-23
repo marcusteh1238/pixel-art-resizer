@@ -1,12 +1,14 @@
 interface FilenameConfigProps {
-  config: {
-    zipFilename: string;
-    template: string;
-  };
-  onChange: (config: { zipFilename: string; template: string }) => void;
+  config: FilenameConfig;
+  onChange: (config: FilenameConfig) => void;
 }
 
-export const FilenameConfig: React.FC<FilenameConfigProps> = ({ config, onChange }) => {
+export type FilenameConfig = {
+  zipFilename: string;
+  template: string;
+}
+
+export const FilenameConfigInput: React.FC<FilenameConfigProps> = ({ config, onChange }) => {
   return (
     <div style={{ 
       marginBottom: '25px', 
