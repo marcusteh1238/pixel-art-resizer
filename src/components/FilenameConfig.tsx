@@ -29,7 +29,7 @@ export const FilenameConfigInput: React.FC<FilenameConfigProps> = ({ config, onC
         />
       </label>
       <label style={{ display: 'flex', alignItems: 'center' }}>
-        <span style={{ width: '180px', whiteSpace: 'nowrap' }}>New Filename:</span>
+        <span style={{ width: '180px', whiteSpace: 'nowrap' }}>New Image Filename:</span>
         <input
           type="text"
           value={config.template}
