@@ -6,12 +6,13 @@ import { downloadSingleImage } from './utils/downloadUtils';
 import { ImageUploader } from './components/ImageUploader';
 import { ResizeControls } from './components/ResizeControls';
 import { ImageGallery } from './components/ImageGallery';
-import { FilenameConfig } from './components/FilenameConfig';
+import { FilenameConfigInput } from './components/FilenameConfig';
 import { Instructions } from './components/Instructions';
 import { Footer } from './components/Footer';
 import { useImages } from './hooks/useImages';
 import { useResizeConfig } from './hooks/useResizeConfig';
 import { useImageProcessing } from './hooks/useImageProcessing';
+import { DownloadAllButton } from './components/DownloadAllButton';
 
 const App: React.FC = () => {
   const { 
@@ -124,9 +125,14 @@ const App: React.FC = () => {
       {images.resized.length > 0 && (
         <>
           <h3>Resized Images</h3>
-          <FilenameConfig 
+          <FilenameConfigInput 
             config={filenameConfig}
             onChange={setFilenameConfig}
+          />
+          <DownloadAllButton 
+            images={images.resized}
+            filenameConfig={filenameConfig}
+            resizeConfig={resizeConfig}
           />
           <ImageGallery 
             images={images.resized}
